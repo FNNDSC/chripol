@@ -1,6 +1,6 @@
 {
   "name": "chripol",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "CUBE table polling simulation. A JS exploration of polling algorithms against a simulated CUBE backend",
   "main": "bin/index.js",
   "scripts": {
