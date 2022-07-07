@@ -1,0 +1,23 @@
+{
+  "name": "chripol",
+  "version": "1.0.0",
+  "description": "CUBE table polling simulation. A JS exploration of polling algorithms against a simulated CUBE backend",
+  "main": "bin/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Rudolph Pienaar",
+  "license": "ISC",
+  "bin": {
+    "chris_cliui": "./bin/index.js",
+    "uCUBE": "./bin/CUBE.js"
+  },
+  "dependencies": {
+    "boxen": "4.0",
+    "chalk": "2.4",
+    "faker": "^5.5.3",
+    "json-colorizer": "^2.2.2",
+    "table": "6.8.0",
+    "yargs": "13.2"
+  }
+}
