@@ -48,7 +48,7 @@ const   CLIoptions  = yargs
           alias:            "getfeeds",
           describe:         "Number of feeds to get as comma separated list of number,offset",
           type:             "string",
-          default:          "20,0"
+          default:          ""
       })
       .option(
         "m", {
@@ -100,7 +100,8 @@ function table_generate(l_feeds) {
 
 /**
  * The table_render function takes a list of feeds and returns an rendered table
- * containing those feeds.
+ * containing those feeds. Some additional columns are UI-specific and are added
+ * here, too.
  *
  *
  * @param l_feeds Used to Generate the table rows.
@@ -109,15 +110,23 @@ function table_generate(l_feeds) {
  * @doc-author Trelent
  */
 function table_render(l_feeds) {
-    let l_header = ['select', 'id', 'Analysis', 'Created', 'Creator', 'Run Time', 'Size', 'JobsDone', 'TotalJobs'];
-    l_feeds.splice(0, 0, l_feeds[0]);
-    l_feeds[0]  = l_header;
-    let l_rows  = table_generate(l_feeds);
+    let l_header = ['select', 'id', 'Analysis', 'Created', 'Creator', 'Run Time', 'Size', 'JobsDone', 'TotalJobs', 'Progress'];
+    let l_feedsDisplay = l_feeds.map(function (d_i) {
+        let d_disp = {};
+        d_disp.select = ' [ ]';
+        return(Object.assign({}, d_disp, d_i));
+    });
+    l_feedsDisplay.splice(0, 0, l_feeds[0]);
+    l_feedsDisplay[0]  = l_header;
+    let l_rows  = table_generate(l_feedsDisplay);
     console.log(table(l_rows));
 }
 
 let output  = new outbox.outbox(CLIoptions);
 output.outputBox_setup();
+
+if(CLIoptions.man)
+    output.outputBox_print(str_aboutMe);
 
 if(CLIoptions.getfeeds.length) {
     let l_numberOffset  = CLIoptions.getfeeds.split(',');
