@@ -30,7 +30,11 @@ module.exports.cujs.prototype  = {
 
     feeds_get:              function(d_param) {
         const l_feeds = this.client.getFeeds(d_param);
-        return(l_feeds);
+        const l_feedsFull = l_feeds.map(function (d_i) {
+            d_i['Progress'] = '-';
+            return(d_i);
+        });
+        return(l_feedsFull);
     },
 
     info_error:             function(header = 'ERROR!') {
