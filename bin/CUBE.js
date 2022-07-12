@@ -32,8 +32,14 @@ ARGS
     Create a new deep-state feed table with <noOfFeeds> elements. This will
     overwrite any existing states and is an effective RESET.
 
-    --getDeepState
-    Show the (Feed) deep state.
+    --stateFile <stateFileName>
+    The name of the CUBE json statefile.
+
+    --getFullDeepState
+    Show the full (Feed) deep state.
+
+    --getDeepState <limit>,<offset>
+    Show a partial (Feed) deep state bounded by <limit>,<offset>
 
     --getFieldForID <id>,<field>
     Return the <value> for <field> in feed <id>.
@@ -41,8 +47,8 @@ ARGS
     --addFeed
     Add a new Feed to the CUBE core state.
 
-    --increaseCompletedJobs <id>
-    Increase the completed jobs count in Feed <id>.
+    --advanceFeed <feedID>
+    Advance the internals of the <feedID>.
 
 `;
 
@@ -53,10 +59,11 @@ const   CUBEoptions = CUBE.CUBEoptions;
 const   ChRIS       = new CUBE.uCUBE(CUBEoptions);
 const { table }     = require('table');
 const   outbox      = require('../util/outbox.js');
+const   colorize    = require("json-colorizer");
 
 /**
- * The table_generate function takes in a list of dictionaries and returns an list
- * with only the dictionary values.
+ * The table_generate function accepts a list of dictionaries and
+ * returns a list with only the dictionary values.
  *
  *
  * @param l_feeds List of dictionary elements for a set of feeds.
@@ -78,8 +85,8 @@ const   outbox      = require('../util/outbox.js');
 }
 
 /**
- * The table_render function takes a list of feeds and returns an rendered table
- * containing those feeds.
+ * The table_render function takes a list of feeds and returns a
+ * rendered table containing those feeds.
  *
  *
  * @param l_feeds Used to Generate the table rows.
@@ -88,7 +95,7 @@ const   outbox      = require('../util/outbox.js');
  * @doc-author Trelent
  */
 function table_render(l_feeds) {
-    let l_header    = ['id', 'Analysis', 'Created', 'Creator', 'Run Time', 'Size', 'JobsDone', 'TotalJobs'];
+    let l_header    = ['id', 'Analysis', 'Created', 'Creator', 'Run Time', 'Size', 'JobsDone', 'JobsRunning', 'TotalJobs'];
     l_feeds.splice(0, 0, l_feeds[0]);
     l_feeds[0]      = l_header;
     let l_rows      = table_generate(l_feeds);
@@ -100,33 +107,44 @@ output.outputBox_setup();
 
 if(CUBEoptions.man) {
     ChRIS.CLIoutput_show(str_aboutME);
+    process.exit();
 }
-else {
-    if(CUBEoptions.generateNewFeedTable) {
-        b_stateExist    = ChRIS.feeds_newCreate();
+
+if(CUBEoptions.generateNewFeedTable) {
+    b_stateExist    = ChRIS.feeds_newCreate();
+} else {
+    if(!ChRIS.feeds_stateRead()) {
+        ChRIS.newFeedTable = 50;
+        ChRIS.initialize();
+    }
+}
+
+if(CUBEoptions.getFullDeepState) {
+    table_render(ChRIS.l_feeds);
+}
+
+if(CUBEoptions.getFieldForID.length) {
+    let l_args  = CUBEoptions.getFieldForID.split(',')
+    let d_query = ChRIS.feed_getFieldValue(l_args[0], l_args[1]);
+    if(d_query['status']) {
+        ChRIS.CLIoutput_show('For ID ' + l_args[0] + ', the ' + l_args[1] +
+                            ' is ' + d_query['value']);
     } else {
-        if(!ChRIS.feeds_stateRead()) {
-            ChRIS.newFeedTable = 50;
-            ChRIS.initialize();
-        }
+        ChRIS.CLIoutput_show('Error: ' + JSON.stringify(d_query, 0, 4), 'error');
     }
-    if(CUBEoptions.getDeepState) {
-        table_render(ChRIS.l_feeds);
-    }
-
-    if(CUBEoptions.getFieldForID.length) {
-        let l_args  = CUBEoptions.getFieldForID.split(',')
-        let d_query = ChRIS.feed_getFieldValue(l_args[0], l_args[1]);
-        if(d_query['status']) {
-            ChRIS.CLIoutput_show('For ID ' + l_args[0] + ', the ' + l_args[1] +
-                                ' is ' + d_query['value']);
-        } else {
-            ChRIS.CLIoutput_show('Error: ' + JSON.stringify(d_query, 0, 4), 'error');
-        }
-    }
-
-    if(CUBEoptions.addFeed) {
-        ChRIS.feed_addNew();
-    }
-
 }
+
+if(CUBEoptions.addFeed) {
+    ChRIS.feed_addNew();
+}
+
+if(CUBEoptions.advanceFeed) {
+    ChRIS.CLIoutput_show(colorize(ChRIS.feed_advanceState(CUBEoptions.advanceFeed), {pretty: true}));
+}
+
+if(CUBEoptions.getDeepState.length) {
+    let l_numberOffset  = CUBEoptions.getDeepState.split(',');
+    let l_feeds         = ChRIS.getStates({'limit': l_numberOffset[0], 'offset': l_numberOffset[1]});
+    table_render(l_feeds);
+}
+
