@@ -11,6 +11,7 @@ const   colorize    = require("json-colorizer");
 
 const   outputbox   = require('../util/outbox.js');
 const { throws }    = require('assert');
+var       _         = require('lodash');
 
 module.exports      = {
 
@@ -46,10 +47,17 @@ module.exports      = {
         })
     .option(
         "d", {
-            alias:          "getDeepState",
+            alias:          "getFullDeepState",
             describe:       "If specified, show the full (deep) state of CUBE",
             type:           "boolean",
             default:        false
+        })
+    .option(
+        "D", {
+            alias:          "getDeepState",
+            describe:       "If specified, show the (deep) state of CUBE with <limit>,<offset>",
+            type:           "string",
+            default:        ""
         })
     .option(
         "f", {
@@ -66,9 +74,9 @@ module.exports      = {
             default:        false
         })
     .option(
-        "i", {
-            alias:          "increaseCompletedJobs",
-            describe:       "Increase the completed jobs count in Feed <id>",
+        "A", {
+            alias:          "advanceFeed <feedID>",
+            describe:       "Advance parameters of <feedID> (RunTime, Size, JobsDone, JobsRunning, TotalJobs",
             type:           "string",
             default:        ""
         })
@@ -127,6 +135,7 @@ module.exports.uCUBE.prototype  = {
     row_generate:   function() {
         totalJobs   = this.randint(1, 10);
         doneJobs    = this.randint(1, totalJobs);
+        runningJobs = this.randint(1, totalJobs - doneJobs - 1);
         runTime     = this.randint(1, 500);
         jobSize     = this.randint(1, 500);
         return ( {
@@ -137,6 +146,7 @@ module.exports.uCUBE.prototype  = {
             'Run_Time':     runTime,
             'Size':         jobSize,
             'JobsDone':     doneJobs,
+            'JobsRunning':  runningJobs,
             'JobsTotal':    totalJobs
         })
     },
@@ -224,21 +234,88 @@ module.exports.uCUBE.prototype  = {
         return(this.b_stateRead);
     },
 
+    feeds_exist:                function() {
+        let feedLength      = 0;
+        let b_feedsExist    = false;
+        try {
+            feedLength      = this.l_feeds.length;
+            b_feedsExist    = true;
+        } catch(e) {
+            this.CLIoutput_show("CUBE has no feeds!", comms = 'error')
+        }
+        return b_feedsExist;
+    },
+
+    id_exists:                  function(aid) {
+        const idCheck   = (id) => id == aid;
+        l_index = this.l_feeds.map(function (d_i) {
+            return(d_i['id']);
+        });
+        return(l_index.findIndex(idCheck));
+    },
+
+    feed_advanceState:          function(feedID) {
+        let index   = -1;
+        d_ret       = {
+            'index':        index,
+            'Run_Time':     -1,
+            'Size':         -1,
+            'JobsDone':     -1,
+            'JobsRunning':  -1,
+            'JobsTotal':    -1,
+            'stateSave':    false
+        }
+        if(this.feeds_exist()) {
+            d_ret.index   = this.id_exists(feedID);
+            if(d_ret.index == -1) return(d_ret);
+            d_feed  = this.l_feeds[d_ret.index];
+            if(d_feed.JobsDone < d_feed.JobsTotal) {
+                if(d_feed.JobsRunning) {
+                    let JobsJustCompleted = this.randint(1, d_feed.JobsRunning);
+                    d_feed.JobsDone      += JobsJustCompleted;
+                    d_feed.JobsRunning   -= JobsJustCompleted;
+                    d_feed.JobsRunning    = this.randint(1, d_feed.JobsTotal - d_feed.JobsDone - 1);
+                    d_feed.Run_Time      += this.randint(1, 500);
+                    d_feed.Size          += this.randint(1, 500);
+                    l_update              = ['Run_Time', 'Size', 'JobsDone', 'JobsRunning', 'JobsTotal'];
+                    l_update.forEach(item => d_ret[item] = d_feed[item]);
+                    d_ret.stateSave       = this.feeds_stateSave();
+                }
+            }
+        }
+        return(d_ret);
+    },
+
+    getStates:                  function(params) {
+        if(this.feeds_exist()) {
+            let offset      = parseInt(params.offset);
+            let limit       = parseInt(params.limit);
+            if(offset < this.l_feeds.length) {
+                if(offset + limit < this.l_feeds.length) {
+                    return(this.l_feeds.slice(offset, offset+limit));
+                } else {
+                    return(this.l_feeds.slice(offset));
+                }
+            }
+        }
+    },
+
     feeds_shallowReturn:        function() {
         let str_about = `
-            Return the feed list but with 'Run Time' and 'Size' set
-            as '-'.
+            Return the feed list but with 'Run Time' and 'Size' set to '-'.
         `;
-        return this.l_feeds.map(function (d_i) {
+        let l_deepCopy_feeds  = _.cloneDeep(this.l_feeds);
+        l_deepCopy_feeds.map(function (d_i) {
             d_i.Run_Time    = '-';
             d_i.Size        = '-';
             return(d_i);
         });
+        return(l_deepCopy_feeds);
     },
 
-    feed_getFieldValue(aid, str_field = 'Size') {
+    feed_getFieldValue:         function(aid, str_field = 'Size') {
         let str_about   = `
-            For a give feed ID, return the field value specified.
+            For a given feed ID, return the field value specified.
         `;
         let b_getOK     = false;
         let d_ret       = {
@@ -248,14 +325,9 @@ module.exports.uCUBE.prototype  = {
             'key'       : str_field,
             'value'     : ""
         }
-        const idCheck   = (id) => id == aid;
-        let l_index     = [];
         let index       = -1;
         if(str_field in this.l_feeds[0]) {
-            l_index = this.l_feeds.map(function (d_i) {
-                return(d_i['id']);
-            });
-            index = l_index.findIndex(idCheck);
+            index           = this.id_exists(aid);
             if(index == -1) return d_ret;
             d_ret.status    = true;
             d_ret.index     = index;
@@ -275,23 +347,6 @@ ERROR!
 
 ${this.error}
         `;
-        return(str_info);
-    },
-
-    info_normal:            function() {
-        const str_INcolor   = colorize(this.IN.str_data);
-        const str_OUTcolor  = colorize(this.OUT.str_data);
-        str_info        = `
-Conversion summary
-
-InputFile:      ${this.options.inputFile}
-InputSteam:     ${this.options.stdin}
-OutputFile:     ${this.options.outputFile}
-OutputStream:   ${this.options.stdout}
-
-InputJSON:
-${str_INcolor}
-`;
         return(str_info);
     },
 
