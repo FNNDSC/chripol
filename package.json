@@ -10,7 +10,7 @@
   "license": "ISC",
   "bin": {
     "chris_cliui": "./bin/index.js",
-    "uCUBE": "./bin/CUBE.js"
+    "CUBE": "./bin/CUBE.js"
   },
   "dependencies": {
     "boxen": "4.0",
