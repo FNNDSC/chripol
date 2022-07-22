@@ -75,8 +75,15 @@ module.exports      = {
         })
     .option(
         "A", {
-            alias:          "advanceFeed <feedID>",
-            describe:       "Advance parameters of <feedID> (RunTime, Size, JobsDone, JobsRunning, TotalJobs",
+            alias:          "advanceFeed",
+            describe:       "Advance parameters of <feedID> (RunTime, Size, JobsDone, JobsRunning, JobsTotal",
+            type:           "string",
+            default:        ""
+        })
+    .option(
+        "p", {
+            alias:          "addJobs",
+            describe:       "Add new jobs to <feedID> (JobsTotal)",
             type:           "string",
             default:        ""
         })
@@ -282,6 +289,28 @@ module.exports.uCUBE.prototype  = {
                     d_ret.stateSave       = this.feeds_stateSave();
                 }
             }
+        }
+        return(d_ret);
+    },
+
+    feed_addPlugins:            function(feedID) {
+        // Add a random number of "new" plugins to a feedID
+        let index   = -1;
+        d_ret       = {
+            'index':            index,
+            'JobsTotalBefore':  -1,
+            'JobsTotal':        -1,
+            'stateSave':        false
+        }
+        if(this.feeds_exist()) {
+            d_ret.index     = this.id_exists(feedID);
+            if(d_ret.index == -1) return(d_ret);
+            let d_feed      = this.l_feeds[d_ret.index];
+            let JobsJustAdded     = this.randint(1, d_feed.JobsTotal);
+            d_ret.JobsTotalBefore = d_feed.JobsTotal;
+            d_feed.JobsTotal     += JobsJustAdded;
+            d_ret.JobsTotal       = d_feed.JobsTotal;
+            d_ret.stateSave       = this.feeds_stateSave();
         }
         return(d_ret);
     },
